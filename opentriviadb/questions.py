@@ -29,7 +29,14 @@
 """Questions interfaces for the OpenTriviaDB wrapper."""
 
 import random
-
+if not hasattr(random, 'sample'):
+    def _sample(population, k):
+        lst = list(population)
+        for i in range(len(lst) - 1, 0, -1):
+            j = random.randint(0, i)
+            lst[i], lst[j] = lst[j], lst[i]
+        return lst[:k]
+    random.sample = _sample
 
 class Question:
     """A trivia question.
