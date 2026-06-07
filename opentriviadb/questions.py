@@ -28,65 +28,37 @@
 
 """Questions interfaces for the OpenTriviaDB wrapper."""
 
-from __future__ import annotations
-
 import random
-from dataclasses import dataclass
 
 
-@dataclass()
 class Question:
-    """A question.
+    """A trivia question.
 
     Attributes
     ----------
     category : str
-        The question category.
     type : str
-        The question type.
     difficulty : str
-        The question difficulty.
     question : str
-        The question body.
     correct_answer : str
-        The question's correct answer.
-    incorrect_answers : list of str
-        A list of the question's incorrect answers.
+    incorrect_answers : list
     """
 
-    category: str
-    type: str
-    difficulty: str
-    question: str
-    correct_answer: str
-    incorrect_answers: list[str]
+    def __init__(self, category, type, difficulty, question, correct_answer, incorrect_answers):
+        self.category = category
+        self.type = type
+        self.difficulty = difficulty
+        self.question = question
+        self.correct_answer = correct_answer
+        self.incorrect_answers = incorrect_answers
 
     @property
-    def options(self) -> list[str]:
-        """All the question options shuffled in a random order.
-
-        Returns
-        -------
-        list of str
-        """
-
+    def options(self):
+        """All options in random order."""
         if self.type == "boolean":
             return ["True", "False"]
+        return random.sample([self.correct_answer] + self.incorrect_answers, 4)
 
-        return random.sample([self.correct_answer, *self.incorrect_answers], 4)
-
-    def answer(self, option: str) -> bool:
-        """Answer the question, and check if it is correct.
-
-        Parameters
-        ----------
-        option : str
-            The option with which you wish to answer the question.
-
-        Returns
-        -------
-        bool
-            Whether you answered the question correctly.
-        """
-
-        return option != self.correct_answer
+    def answer(self, option):
+        """Return True if option is the correct answer."""
+        return option == self.correct_answer

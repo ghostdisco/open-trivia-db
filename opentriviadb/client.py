@@ -28,25 +28,26 @@
 
 """Client interfaces for the OpenTriviaDB wrapper."""
 
-from __future__ import annotations
+import binascii
 
-import asyncio
-import enum
-import sys
-import typing as t
-from base64 import b64decode
-from types import TracebackType
-
-from aiohttp import ClientSession
+try:
+    import urequests as _requests
+except ImportError:
+    import requests as _requests
 
 from opentriviadb import BASE_URL, TOKEN_URL
-from opentriviadb.errors import InvalidParameter, NoResults, TokenEmpty, TokenNotFound
+from opentriviadb.errors import InvalidParameter, NoResults, RateLimitExceeded, TokenEmpty, TokenNotFound
 from opentriviadb.questions import Question
 
-EXCEPTIONS: t.Final = [None, NoResults, InvalidParameter, TokenNotFound, TokenEmpty]
+EXCEPTIONS = [None, NoResults, InvalidParameter, TokenNotFound, TokenEmpty, RateLimitExceeded]
 
 
-class Category(enum.Enum):
+def _b64decode(s):
+    data = s.encode("utf-8") if isinstance(s, str) else s
+    return binascii.a2b_base64(data).decode("utf-8")
+
+
+class Category:
     GENERAL_KNOWLEDGE = 9
     ENTERTAINMENT_BOOKS = 10
     ENTERTAINMENT_FILM = 11
@@ -74,215 +75,81 @@ class Category(enum.Enum):
 
 
 class Client:
-    """A client for the Open Trivia API.
+    """A client for the Open Trivia API."""
 
-    Parameters
-    ----------
-    token : str, optional
-        Your session token. This is not an access token in the
-        traditional sense (and is thus optional), but a token generated
-        by the API in order to track which questions you have received.
-        This is done to prevent duplicate questions.
-
-    Other Parameters
-    ----------------
-    loop : AbstractEventLoop, optional
-        The event loop the client should use. If you don't provide one,
-        the client will create one.
-    session : ClientSession, optional
-        The AIOHTTP session the client should use. If you don't provide
-        one, the client will create one.
-
-    ??? example "Basic example"
-        ```py
-        client = Client()
-        ```
-
-    ??? example "Context manager example"
-        ```py
-        async with Client() as client:
-            ...
-        ```
-    """
-
-    def __init__(
-        self,
-        token: str | None = None,
-        *,
-        loop: asyncio.AbstractEventLoop | None = None,
-        session: ClientSession | None = None,
-        **kwargs: t.Any,
-    ) -> None:
-        try:
-            self._loop = loop or asyncio.get_running_loop()
-        except RuntimeError:
-            self._loop = (
-                asyncio.new_event_loop()
-                if sys.version_info >= (3, 10)
-                else asyncio.get_event_loop()
-            )
-
-        self._session = session or ClientSession(loop=self._loop, **kwargs)
+    def __init__(self, token=None):
         self.token = token
 
-    async def __aenter__(self) -> Client:
+    def __enter__(self):
         return self
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        await self.teardown()
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        pass
 
-    async def round(
-        self,
-        amount: int = 10,
-        category: Category | None = None,
-        difficulty: t.Literal["easy", "medium", "hard"] | None = None,
-        type: t.Literal["multiple", "boolean"] | None = None,
-    ) -> t.AsyncIterator[Question]:
-        """Run a round of trivia.
+    def round(self, amount=10, category=None, difficulty=None, type=None):
+        """Fetch a list of trivia questions.
 
         Parameters
         ----------
-        amount : int, optional
-            The number of questions the round should contain. This
-            cannot be higher than 50, and defaults to 10.
-        category : Category, optional
-            The category of the questions that should be in the round.
-            This should be passed as a `Category` enum, which can be
-            imported using `from opentriviadb import Category`. If this
-            is not provided, the questions will be in a mix of
-            categories.
-        difficulty : "easy" or "medium" or "hard", optional
-            The difficulty of questions that should be in the round. If
-            this is not provided, the questions can be of any
-            difficulty.
-        type : "multiple" or "boolean", optional
-            The type of questions that should be in the round. This can
-            either be multiple choice ("multiple") or true-false
-            ("boolean"). If this is not provided, the questions can be
-            either.
+        amount : int
+            Number of questions (max 50, default 10).
+        category : Category attribute, optional
+            A value from the Category class (e.g. Category.GENERAL_KNOWLEDGE).
+        difficulty : str, optional
+            "easy", "medium", or "hard".
+        type : str, optional
+            "multiple" or "boolean".
 
-        Yields
-        ------
-        Question
-            Asynchronously yield questions one by one.
-
-        Raises
-        ------
-        NoResults
-            The API does not have enough questions to satisfy your
-            query.
-        InvalidParameter
-            An invalid parameter has been passed.
-        TokenNotFound
-            Session token does not exist (session tokens are not
-            required to make requests).
-        TokenEmpty
-            The session token needs to be reset (use
-            `client.reset_token` to do this).
-
-        ??? example "Basic example"
-            ```py
-            async for q in client.round():
-                print(q.question)
-            ```
-
-        ??? example "Example with parameters"
-            ```py
-            from opentriviadb import Category
-
-            async for q in client.round(
-                amount=25,
-                category=Category.GENERAL_KNOWLEDGE,
-                difficulty="easy",
-                type="multiple",
-            ):
-                print(q.question)
-            ```
+        Returns
+        -------
+        list of Question
         """
-
         url = (
             BASE_URL
-            + f"?amount={amount}"
-            + (f"&category={category.value}" if category else "")
-            + (f"&difficulty={difficulty}" if difficulty else "")
-            + (f"&type={type}" if type else "")
+            + "?amount=" + str(amount)
+            + ("&category=" + str(category) if category is not None else "")
+            + ("&difficulty=" + difficulty if difficulty else "")
+            + ("&type=" + type if type else "")
             + "&encode=base64"
-            + (f"&token={self.token}" if self.token else "")
+            + ("&token=" + self.token if self.token else "")
         )
 
-        async with self._session.get(url) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
+        resp = _requests.get(url)
+        data = resp.json()
+        resp.close()
 
         code = data["response_code"]
-        results = data["results"]
-
         if code != 0:
             raise EXCEPTIONS[code]()
 
-        for result in results:
-            yield Question(
-                b64decode(result["category"]).decode("utf-8"),
-                b64decode(result["type"]).decode("utf-8"),
-                b64decode(result["difficulty"]).decode("utf-8"),
-                b64decode(result["question"]).decode("utf-8"),
-                b64decode(result["correct_answer"]).decode("utf-8"),
-                [b64decode(i).decode("utf-8") for i in result["incorrect_answers"]],
+        return [
+            Question(
+                _b64decode(r["category"]),
+                _b64decode(r["type"]),
+                _b64decode(r["difficulty"]),
+                _b64decode(r["question"]),
+                _b64decode(r["correct_answer"]),
+                [_b64decode(i) for i in r["incorrect_answers"]],
             )
+            for r in data["results"]
+        ]
 
-    async def request_token(self) -> str:
+    def request_token(self):
         """Request a session token from the API.
-
-        While the token is returned from this method, you don't need to
-        do anything extra to allow the client to use the token.
 
         Returns
         -------
         str
-            The session token. This is automatically applied to the
-            client, but is returned to allow you to store it for future
-            use.
+            The session token (also stored as self.token).
         """
-
-        async with self._session.get(TOKEN_URL + "?command=request") as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-
+        resp = _requests.get(TOKEN_URL + "?command=request")
+        data = resp.json()
+        resp.close()
         self.token = data["token"]
-        return t.cast(str, self.token)
+        return self.token
 
-    async def reset_token(self) -> None:
-        """Reset a session token.
-
-        This resets the token currently applied to the client. This does
-        not error if no token currently exists, but instead silently
-        does nothing.
-
-        Returns
-        -------
-        None
-        """
-
-        async with self._session.get(
-            TOKEN_URL + f"?command=reset&token={self.token}"
-        ) as resp:
-            resp.raise_for_status()
-
-    async def teardown(self) -> None:
-        """Close the AIOHTTP session.
-
-        This should be called before closing your program. If you use
-        the client via the context manager, this is called
-        automatically.
-
-        Returns
-        -------
-        None
-        """
-
-        await self._session.close()
+    def reset_token(self):
+        """Reset the session token."""
+        if self.token:
+            resp = _requests.get(TOKEN_URL + "?command=reset&token=" + self.token)
+            resp.close()

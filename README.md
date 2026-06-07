@@ -1,71 +1,125 @@
 # OpenTriviaDB
 
-An asynchronous wrapper for the [Open Trivia DB](https://opentdb.com/) API.
+A MicroPython-compatible wrapper for the [Open Trivia DB](https://opentdb.com/) API.
+
+This is a fork of [parafoxia/opentriviadb](https://github.com/parafoxia/opentriviadb) rewritten for use on microcontrollers running MicroPython. The async/aiohttp-based API has been replaced with synchronous `urequests` calls, and dependencies on CPython-only standard library modules (`asyncio`, `dataclasses`, `enum`, `typing`) have been removed.
 
 This is an unofficial wrapper, and is not affiliated with [PIXELTAIL GAMES LLC.](https://www.pixeltailgames.com/)
 
 ## Installation
 
-To install the latest stable version of OpenTriviaDB, use the following command:
+### On a MicroPython device (via mpremote mip)
 
 ```sh
-pip install opentriviadb
+mpremote mip install github:ghostdisco/open-trivia-db
 ```
 
-You can also install the latest development version using the following command:
+This installs the `opentriviadb` package and its `urequests` dependency directly onto the device.
+
+### For desktop CPython (development / testing)
 
 ```sh
-pip install git+https://github.com/parafoxia/opentriviadb
+pip install requests
+pip install -e .
 ```
 
-You may need to prefix these commands with a call to the Python interpreter depending on your OS and Python configuration.
+Or install the built wheel:
+
+```sh
+pip install dist/opentriviadb-*.whl
+```
+
+Use `make build` to produce the wheel (see [Development](#development) below).
 
 ## Usage
 
-Before you can pull questions from the API, you first need to create a client:
+Create a client and fetch questions:
 
-```py
-from opentriviadb import Client
+```python
+from opentriviadb import Client, Category
 
 client = Client()
 
-# You can also use the client via a context manager.
-async with Client() as client:
-    ...
+questions = client.round(
+    amount=10,
+    category=Category.SCIENCE_COMPUTERS,
+    difficulty="easy",
+    type="multiple",
+)
+
+for q in questions:
+    print(q.question)
+    for i, opt in enumerate(q.options, 1):
+        print(f"  {i}. {opt}")
 ```
 
-To prevent duplicate questions being pulled, request a session token:
+### Session tokens
 
-```py
-await client.request_token()
+Session tokens let the API track which questions you have already received, preventing duplicates within a session.
+
+```python
+client = Client()
+client.request_token()   # token stored on client.token
+
+# Reset when all questions for your filter have been exhausted:
+client.reset_token()
 ```
 
-You can now run a round of trivia!
-Questions are yielded one at a time when needed, though you can use the `list()` built-in function if you need them all available at once.
-See the [`Question`](./questions) docs for more information.
+### `Question` objects
 
-```py
-async for q in client.round():
-    # Yields `Question` objects.
-    ...
+| Attribute | Type | Description |
+|---|---|---|
+| `category` | `str` | Question category |
+| `type` | `str` | `"multiple"` or `"boolean"` |
+| `difficulty` | `str` | `"easy"`, `"medium"`, or `"hard"` |
+| `question` | `str` | The question text |
+| `correct_answer` | `str` | The correct answer |
+| `incorrect_answers` | `list` | List of wrong answers |
+
+| Method / property | Returns | Description |
+|---|---|---|
+| `options` | `list` | All answers shuffled (or `["True", "False"]` for boolean) |
+| `answer(option)` | `bool` | `True` if `option` matches the correct answer |
+
+### `Category` values
+
+```python
+Category.GENERAL_KNOWLEDGE
+Category.ENTERTAINMENT_BOOKS
+Category.ENTERTAINMENT_FILM
+Category.ENTERTAINMENT_MUSIC
+Category.ENTERTAINMENT_MUSICALS_AND_THEATRES
+Category.ENTERTAINMENT_TELEVISION
+Category.ENTERTAINMENT_VIDEO_GAMES
+Category.ENTERTAINMENT_BOARD_GAMES
+Category.SCIENCE_AND_NATURE
+Category.SCIENCE_COMPUTERS
+Category.SCIENCE_MATHEMATICS
+Category.MYTHOLOGY
+Category.SPORTS
+Category.GEOGRAPHY
+Category.HISTORY
+Category.POLITICS
+Category.ART
+Category.CELEBRITIES
+Category.ANIMALS
+Category.VEHICLES
+Category.ENTERTAINMENT_COMICS
+Category.SCIENCE_GADGETS
+Category.ENTERTAINMENT_JAPANESE_ANIME_AND_MANGA
+Category.ENTERTAINMENT_CARTOON_AND_ANIMATIONS
 ```
 
-Once you're done, you need to tear the client down:
+## Development
 
-```py
-await client.teardown()
+A `Makefile` is included for common tasks:
+
+```sh
+make build    # Build a .whl and sdist in dist/
+make test     # Run the sanity-check test against the live API
+make clean    # Remove build artefacts
 ```
-
-If you use the client via the context manager, the teardown method is called automatically.
-
-## Contributing
-
-Contributions are very much welcome!
-To get started:
-
-* Familiarise yourself with the [code of conduct](https://github.com/parafoxia/opentriviadb/blob/main/CODE_OF_CONDUCT.md)
-* Have a look at the [contributing guide](https://github.com/parafoxia/opentriviadb/blob/main/CONTRIBUTING.md)
 
 ## License
 
-The OpenTriviaDB module for Python is licensed under the [BSD 3-Clause License](https://github.com/parafoxia/opentriviadb/blob/main/LICENSE).
+The OpenTriviaDB module for Python is licensed under the [BSD 3-Clause License](https://github.com/ghostdisco/open-trivia-db/blob/main/LICENSE).

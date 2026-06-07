@@ -28,8 +28,6 @@
 
 """OpenTriviaDB errors."""
 
-from __future__ import annotations
-
 
 class OpenTriviaError(Exception):
     """The base error for OpenTriviaDB errors."""
@@ -71,4 +69,13 @@ class TokenEmpty(OpenTriviaError):
         super().__init__(
             "all possible questions returned using current token -- use "
             "`client.reset_token` to reset it"
+        )
+
+
+class RateLimitExceeded(OpenTriviaError):
+    """Too many requests sent in a short period. Wait 5 seconds before retrying."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "rate limit exceeded -- wait at least 5 seconds between requests"
         )
