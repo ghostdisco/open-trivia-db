@@ -29,14 +29,13 @@
 """Questions interfaces for the OpenTriviaDB wrapper."""
 
 import random
-if not hasattr(random, 'sample'):
-    def _sample(population, k):
-        lst = list(population)
-        for i in range(len(lst) - 1, 0, -1):
-            j = random.randint(0, i)
-            lst[i], lst[j] = lst[j], lst[i]
-        return lst[:k]
-    random.sample = _sample
+
+def random_sample(population, k):
+    lst = list(population)
+    for i in range(len(lst) - 1, 0, -1):
+        j = random.randint(0, i)
+        lst[i], lst[j] = lst[j], lst[i]
+    return lst[:k]
 
 class Question:
     """A trivia question.
@@ -64,7 +63,8 @@ class Question:
         """All options in random order."""
         if self.type == "boolean":
             return ["True", "False"]
-        return random.sample([self.correct_answer] + self.incorrect_answers, 4)
+        
+        return random_sample([self.correct_answer] + self.incorrect_answers, 4)
 
     def answer(self, option):
         """Return True if option is the correct answer."""
