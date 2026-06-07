@@ -37,20 +37,22 @@ __all__ = (
     "TokenEmpty",
 )
 
-__productname__ = "opentriviadb"
 __version__ = "0.1.0"
-__description__ = "An asynchronous wrapper for the Open Trivia DB API."
-__url__ = "https://github.com/parafoxia/opentriviadb"
-__docs__ = "https://parafoxia.github.io/opentriviadb"
-__author__ = "Ethan Henderson"
-__author_email__ = "ethan.henderson.1998@gmail.com"
-__license__ = "BSD 3-Clause 'New' or 'Revised' License"
-__bugtracker__ = "https://github.com/parafoxia/opentriviadb/issues"
-__ci__ = "https://github.com/parafoxia/opentriviadb/actions"
-__changelog__ = "https://github.com/parafoxia/opentriviadb/releases"
 
 BASE_URL = "https://opentdb.com/api.php"
-TOKEN_URL = "https://opentdb.com/api_token.php"  # nosec B105
+TOKEN_URL = "https://opentdb.com/api_token.php"
 
 from .client import Category, Client
 from .errors import *
+
+__all__ = (
+    "BASE_URL",
+    "TOKEN_URL",
+    "Category",
+    "Client",
+    "NoResults",
+    "InvalidParameter",
+    "TokenNotFound",
+    "TokenEmpty",
+    "RateLimitExceeded",
+)

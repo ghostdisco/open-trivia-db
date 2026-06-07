@@ -1,0 +1,11 @@
+{
+    "urls": [
+        ["opentriviadb/__init__.py", "github:ghostdisco/open-trivia-db/opentriviadb/__init__.py"],
+        ["opentriviadb/client.py", "github:ghostdisco/open-trivia-db/opentriviadb/client.py"],
+        ["opentriviadb/errors.py", "github:ghostdisco/open-trivia-db/opentriviadb/errors.py"],
+        ["opentriviadb/questions.py", "github:ghostdisco/open-trivia-db/opentriviadb/questions.py"]
+    ],
+    "deps": [
+        ["urequests", "latest"]
+    ]
+}
